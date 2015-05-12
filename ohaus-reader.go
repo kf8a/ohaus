@@ -5,11 +5,18 @@ import (
 	"fmt"
 	serial "github.com/tarm/serial"
 	"log"
-	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Scale struct {
+}
+
+type Datum struct {
+	time   time.Time
+	weight float64
+	unit   string
 }
 
 func (scale Scale) Open() (port *serial.Port, err error) {
@@ -18,26 +25,48 @@ func (scale Scale) Open() (port *serial.Port, err error) {
 	return
 }
 
-func (scale Scale) Read(port *serial.Port) (value string) {
+func (scale Scale) Read(port *serial.Port) (value string, err error) {
 	port.Write([]byte("IP\r\n"))
 	scanner := bufio.NewScanner(port)
 	scanner.Scan()
-
 	value = scanner.Text()
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "reading standard input:", err)
-	}
+	err = scanner.Err()
 	return
 }
 
-func main() {
-	scale := Scale{}
+func (scale Scale) Reader(c chan Datum) {
 	port, err := scale.Open()
 	if err != nil {
 		log.Fatal(err)
 	}
 	for {
-		value := scale.Read(port)
-		fmt.Println(time.Now(), value)
+		v, err := scale.Read(port)
+		if err != nil {
+			log.Fatal(err)
+		}
+		value := strings.Split(strings.Trim(v, " "), " ")
+		weight, err := strconv.ParseFloat(value[0], 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		d := Datum{
+			time:   time.Now(),
+			weight: weight,
+			unit:   value[1],
+		}
+
+		// fmt.Println(d)
+		c <- d
+	}
+}
+
+func main() {
+	c := make(chan Datum)
+	scale := Scale{}
+	go scale.Reader(c)
+	for {
+		d := <-c
+		fmt.Println(d.time, d.weight, d.unit)
 	}
 }
