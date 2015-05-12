@@ -1,38 +1,43 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	serial "github.com/tarm/serial"
+	"log"
+	"os"
+	"time"
 )
 
 type Scale struct {
-	port io.ReadWriteCloser
 }
 
-func (scale Scale) Open() error {
-	c := serial.Config{Name: "/dev/ttyUSB0", Baud: 9600, ReadTimeout: time.Second * 1}
-	port, err := serial.OpenPort(&c)
-	scale.port = port
-	return scale, err
+func (scale Scale) Open() (port *serial.Port, err error) {
+	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 9600}
+	port, err = serial.OpenPort(c)
+	return
 }
 
-func (scale Scale) Read() {
-	port.Write("IP\r\n")
-	buf := make([]byte, 128)
-	n, err = port.Read(buf)
-	if err != nil {
-		log.Fatal(err)
+func (scale Scale) Read(port *serial.Port) (value string) {
+	port.Write([]byte("IP\r\n"))
+	scanner := bufio.NewScanner(port)
+	scanner.Scan()
+
+	value = scanner.Text()
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "reading standard input:", err)
 	}
-	log.Printf("%q", buf[:n])
-
+	return
 }
 
 func main() {
-	scale = scale.Scale{}
-	err = scale.Open()
+	scale := Scale{}
+	port, err := scale.Open()
 	if err != nil {
 		log.Fatal(err)
 	}
-	value, err = scale.Read()
-	fmt.Println(value)
+	for {
+		value := scale.Read(port)
+		fmt.Println(time.Now(), value)
+	}
 }
