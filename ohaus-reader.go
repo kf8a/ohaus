@@ -40,6 +40,7 @@ func (scale Scale) Reader(c chan Datum) {
 		log.Fatal(err)
 	}
 	for {
+		time := time.Now()
 		v, err := scale.Read(port)
 		if err != nil {
 			log.Fatal(err)
@@ -51,7 +52,7 @@ func (scale Scale) Reader(c chan Datum) {
 		}
 
 		d := Datum{
-			time:   time.Now(),
+			time:   time,
 			weight: weight,
 			unit:   value[1],
 		}
