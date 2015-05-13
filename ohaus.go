@@ -48,6 +48,8 @@ func (scale Scale) TestReader(c chan Datum) {
 
 func (scale Scale) Reader(c chan Datum) {
 	port, err := scale.Open()
+	defer port.Close()
+
 	var d Datum
 	if err != nil {
 		d.Err = err
@@ -58,7 +60,6 @@ func (scale Scale) Reader(c chan Datum) {
 		time := time.Now()
 		v, err := scale.Read(port)
 		if err != nil {
-			port.Close()
 			d.Err = err
 			c <- d
 			return
@@ -66,7 +67,6 @@ func (scale Scale) Reader(c chan Datum) {
 		value := strings.Split(strings.Trim(v, " "), " ")
 		weight, err := strconv.ParseFloat(value[0], 64)
 		if err != nil {
-			port.Close()
 			d.Err = err
 			c <- d
 			return
