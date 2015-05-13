@@ -1,12 +1,59 @@
 package main
 
 import (
-	"fmt"
-	"github.com/kf8a/ohaus"
+	// "encoding/json"
+	"flag"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"log"
-	"time"
+	"net/http"
 )
 
-func main() {
+type connection struct {
+	ws   *websocket.Conn
+	send chan []byte
+	d    *dataSource
+}
 
+func (c *connection) reader() {
+	for message := range c.send {
+		err := c.ws.WriteMessage(websocket.TextMessage, message)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+	c.ws.Close()
+}
+
+var upgrader = websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
+
+func ScaleHandler(d *dataSource, w http.ResponseWriter, r *http.Request) {
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	c := &connection{send: make(chan []byte), ws: ws, d: d}
+	c.d.register <- c
+	defer func() { c.d.unregister <- c }()
+	c.reader()
+}
+
+func main() {
+	var test bool
+	flag.BoolVar(&test, "test", false, "use a random number generator instead of a live feed")
+	flag.Parse()
+
+	instrument := newDataSource()
+	go instrument.read(test)
+
+	r := mux.NewRouter()
+
+	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		ScaleHandler(instrument, w, r)
+	})
+
+	http.Handle("/", r)
+	http.ListenAndServe("*:8080", nil)
 }
