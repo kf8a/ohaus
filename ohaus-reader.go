@@ -11,16 +11,18 @@ import (
 )
 
 type Scale struct {
+	PortName string
 }
 
 type Datum struct {
 	time   time.Time
 	weight float64
 	unit   string
+	err    error
 }
 
 func (scale Scale) Open() (port *serial.Port, err error) {
-	c := &serial.Config{Name: "/dev/ttyUSB0", Baud: 9600}
+	c := &serial.Config{Name: scale.PortName, Baud: 9600}
 	port, err = serial.OpenPort(c)
 	return
 }
@@ -36,8 +38,11 @@ func (scale Scale) Read(port *serial.Port) (value string, err error) {
 
 func (scale Scale) Reader(c chan Datum) {
 	port, err := scale.Open()
+	var d Datum
 	if err != nil {
-		log.Fatal(err)
+		d.err = err
+		c <- d
+		return
 	}
 	for {
 		time := time.Now()
@@ -48,26 +53,33 @@ func (scale Scale) Reader(c chan Datum) {
 		value := strings.Split(strings.Trim(v, " "), " ")
 		weight, err := strconv.ParseFloat(value[0], 64)
 		if err != nil {
-			log.Fatal(err)
+			port.Close()
+			d.err = err
+			c <- d
+			return
 		}
 
-		d := Datum{
-			time:   time,
-			weight: weight,
-			unit:   value[1],
-		}
+		d.time = time
+		d.weight = weight
+		d.unit = value[1]
 
-		// fmt.Println(d)
 		c <- d
 	}
 }
 
 func main() {
 	c := make(chan Datum)
-	scale := Scale{}
-	go scale.Reader(c)
 	for {
-		d := <-c
-		fmt.Println(d.time, d.weight, d.unit)
+		scale := Scale{PortName: "/dev/ttyUSB0"}
+		go scale.Reader(c)
+		for {
+			d := <-c
+			if d.err != nil {
+				log.Println(d.err)
+				break
+			}
+			fmt.Println(d.time, d.weight, d.unit)
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
