@@ -3,6 +3,7 @@ package ohaus
 import (
 	"bufio"
 	serial "github.com/tarm/serial"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,17 @@ func (scale Scale) Read(port *serial.Port) (value string, err error) {
 	value = scanner.Text()
 	err = scanner.Err()
 	return
+}
+
+func (scale Scale) TestReader(c chan Datum) {
+	var d Datum
+	d.Unit = "kg"
+	for {
+		d.Time = time.Now()
+		d.Weight = rand.Float64()
+		time.Sleep(2 * time.Millisecond)
+		c <- d
+	}
 }
 
 func (scale Scale) Reader(c chan Datum) {
