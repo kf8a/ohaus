@@ -80,6 +80,6 @@ func main() {
 			}
 			fmt.Println(d.time, d.weight, d.unit)
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 }
