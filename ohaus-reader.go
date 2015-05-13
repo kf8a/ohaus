@@ -3,7 +3,6 @@ package ohaus
 import (
 	"bufio"
 	serial "github.com/tarm/serial"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -14,10 +13,10 @@ type Scale struct {
 }
 
 type Datum struct {
-	time   time.Time
-	weight float64
-	unit   string
-	err    error
+	Time   time.Time
+	Weight float64
+	Unit   string
+	Err    error
 }
 
 func (scale Scale) Open() (port *serial.Port, err error) {
@@ -39,7 +38,7 @@ func (scale Scale) Reader(c chan Datum) {
 	port, err := scale.Open()
 	var d Datum
 	if err != nil {
-		d.err = err
+		d.Err = err
 		c <- d
 		return
 	}
@@ -47,20 +46,23 @@ func (scale Scale) Reader(c chan Datum) {
 		time := time.Now()
 		v, err := scale.Read(port)
 		if err != nil {
-			log.Fatal(err)
+			port.Close()
+			d.Err = err
+			c <- d
+			return
 		}
 		value := strings.Split(strings.Trim(v, " "), " ")
 		weight, err := strconv.ParseFloat(value[0], 64)
 		if err != nil {
 			port.Close()
-			d.err = err
+			d.Err = err
 			c <- d
 			return
 		}
 
-		d.time = time
-		d.weight = weight
-		d.unit = value[1]
+		d.Time = time
+		d.Weight = weight
+		d.Unit = value[1]
 
 		c <- d
 	}

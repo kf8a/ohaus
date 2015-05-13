@@ -2,22 +2,23 @@ package main
 
 import (
 	"fmt"
-	"ohausreader"
+	"github.com/kf8a/ohaus"
+	"log"
 	"time"
 )
 
 func main() {
-	c := make(chan Datum)
+	c := make(chan ohaus.Datum)
 	for {
-		scale := Scale{PortName: "/dev/ttyUSB0"}
+		scale := ohaus.Scale{PortName: "/dev/ttyUSB0"}
 		go scale.Reader(c)
 		for {
 			d := <-c
-			if d.err != nil {
-				log.Println(d.err)
+			if d.Err != nil {
+				log.Println(d.Err)
 				break
 			}
-			fmt.Println(d.time, d.weight, d.unit)
+			fmt.Println(d.Time, d.Weight, d.Unit)
 		}
 		time.Sleep(2 * time.Second)
 	}
