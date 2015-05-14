@@ -3,6 +3,7 @@ package ohaus
 import (
 	"bufio"
 	serial "github.com/tarm/serial"
+	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -47,35 +48,38 @@ func (scale Scale) TestReader(c chan Datum) {
 }
 
 func (scale Scale) Reader(c chan Datum) {
-	port, err := scale.Open()
-	defer port.Close()
-
 	var d Datum
-	if err != nil {
-		d.Err = err
-		c <- d
-		return
-	}
 	for {
-		time := time.Now()
-		v, err := scale.Read(port)
+		port, err := scale.Open()
+		// defer port.Close()
+
 		if err != nil {
-			d.Err = err
-			c <- d
-			return
+			log.Println(err)
+			time.Sleep(2 * time.Second)
+			continue
 		}
-		value := strings.Split(strings.Trim(v, " "), " ")
-		weight, err := strconv.ParseFloat(value[0], 64)
-		if err != nil {
-			d.Err = err
+		for {
+			time := time.Now()
+			v, err := scale.Read(port)
+			if err != nil {
+				port.Close()
+				log.Println(err)
+				break
+			}
+			value := strings.Split(strings.Trim(v, " "), " ")
+			weight, err := strconv.ParseFloat(value[0], 64)
+			if err != nil || len(value) < 2 {
+				port.Close()
+				log.Println(err)
+				break
+			}
+
+			d.Time = time
+			d.Weight = weight
+			d.Unit = value[1]
+
 			c <- d
-			return
 		}
 
-		d.Time = time
-		d.Weight = weight
-		d.Unit = value[1]
-
-		c <- d
 	}
 }
