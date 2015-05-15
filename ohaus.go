@@ -42,7 +42,7 @@ func (scale Scale) TestReader(c chan Datum) {
 	for {
 		d.Time = time.Now()
 		d.Weight = rand.Float64()
-		time.Sleep(2 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		c <- d
 	}
 }
@@ -51,7 +51,6 @@ func (scale Scale) Reader(c chan Datum) {
 	var d Datum
 	for {
 		port, err := scale.Open()
-		// defer port.Close()
 
 		if err != nil {
 			log.Println(err)

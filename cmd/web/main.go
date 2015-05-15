@@ -26,7 +26,11 @@ func (c *connection) reader() {
 	c.ws.Close()
 }
 
-var upgrader = websocket.Upgrader{ReadBufferSize: 1024, WriteBufferSize: 1024}
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
 
 func ScaleHandler(d *dataSource, w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
@@ -55,5 +59,7 @@ func main() {
 	})
 
 	http.Handle("/", r)
-	http.ListenAndServe("*:8080", nil)
+
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
+	http.ListenAndServe("127.0.0.1:8081", nil)
 }
