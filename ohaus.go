@@ -18,7 +18,6 @@ type Datum struct {
 	Time   time.Time
 	Weight float64
 	Unit   string
-	Err    error
 }
 
 func (scale Scale) Open() (port *serial.Port, err error) {
