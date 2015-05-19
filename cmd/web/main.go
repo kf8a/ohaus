@@ -27,7 +27,7 @@ func (c *connection) reader() {
 	c.ws.Close()
 }
 
-func (c *connection) fileReader() {
+func (c *connection) fileReader(location string) {
 
 	f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	w := bufio.NewWriter(f)
@@ -39,7 +39,6 @@ func (c *connection) fileReader() {
 
 	for message := range c.send {
 		_, _ = f.WriteString(string(message) + "\n")
-		// log.Println(string(message))
 	}
 }
 
@@ -61,8 +60,12 @@ func ScaleHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request
 	c.reader()
 }
 
-func StartRecordingHandler(d *dataSource, w http.ResponseWriter, r *http.Request) {
+func StartRecordingHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request) {
 
+	file := &connection{send: make(chan []byte), d: instrument}
+	file.d.register <- file
+	defer func() { file.d.unregister <- file }()
+	file.fileReader("T1R1")
 }
 
 func main() {
@@ -72,11 +75,6 @@ func main() {
 
 	instrument := newDataSource()
 	go instrument.read(test)
-
-	file := &connection{send: make(chan []byte), d: instrument}
-	file.d.register <- file
-	defer func() { file.d.unregister <- file }()
-	file.fileReader()
 
 	r := mux.NewRouter()
 
