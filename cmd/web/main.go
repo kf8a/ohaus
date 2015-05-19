@@ -32,16 +32,19 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-func ScaleHandler(d *dataSource, w http.ResponseWriter, r *http.Request) {
+func ScaleHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	c := &connection{send: make(chan []byte), ws: ws, d: d}
+	c := &connection{send: make(chan []byte), ws: ws, d: instrument}
 	c.d.register <- c
 	defer func() { c.d.unregister <- c }()
 	c.reader()
+}
+
+func StartRecordingHandler(d *dataSource, w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
@@ -56,6 +59,10 @@ func main() {
 
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		ScaleHandler(instrument, w, r)
+	})
+
+	r.HandleFunc("/record", func(w http.ResponseWriter, r *http.Request) {
+		StartRecordingHandler(instrument, w, r)
 	})
 
 	http.Handle("/", r)

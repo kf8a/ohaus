@@ -10,7 +10,6 @@ type dataSource struct {
 	connections map[*connection]bool
 	register    chan *connection
 	unregister  chan *connection
-	host        string
 }
 
 func newDataSource() *dataSource {
@@ -21,6 +20,7 @@ func newDataSource() *dataSource {
 	}
 }
 
+// the one place where we talk to the insturment
 func (q *dataSource) readData(cs chan string, test bool) {
 	var data ohaus.Datum
 	c := make(chan ohaus.Datum)
@@ -57,6 +57,7 @@ func (q *dataSource) read(test bool) {
 			q.connections[c] = false
 		default:
 			for c := range q.connections {
+				log.Println(c)
 				select {
 				case c.send <- []byte(data):
 				default:
