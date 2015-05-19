@@ -1,12 +1,13 @@
 package main
 
 import (
-	// "encoding/json"
+	"bufio"
 	"flag"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"os"
 )
 
 type connection struct {
@@ -24,6 +25,22 @@ func (c *connection) reader() {
 		}
 	}
 	c.ws.Close()
+}
+
+func (c *connection) fileReader() {
+
+	f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	w := bufio.NewWriter(f)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer w.Flush()
+
+	for message := range c.send {
+		_, _ = f.WriteString(string(message) + "\n")
+		// log.Println(string(message))
+	}
 }
 
 var upgrader = websocket.Upgrader{
@@ -45,6 +62,7 @@ func ScaleHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request
 }
 
 func StartRecordingHandler(d *dataSource, w http.ResponseWriter, r *http.Request) {
+
 }
 
 func main() {
@@ -54,6 +72,11 @@ func main() {
 
 	instrument := newDataSource()
 	go instrument.read(test)
+
+	file := &connection{send: make(chan []byte), d: instrument}
+	file.d.register <- file
+	defer func() { file.d.unregister <- file }()
+	file.fileReader()
 
 	r := mux.NewRouter()
 

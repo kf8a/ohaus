@@ -57,7 +57,6 @@ func (q *dataSource) read(test bool) {
 			q.connections[c] = false
 		default:
 			for c := range q.connections {
-				log.Println(c)
 				select {
 				case c.send <- []byte(data):
 				default:
