@@ -49,13 +49,17 @@ func (q *dataSource) read(test bool) {
 	go data.readData(cs, test)
 
 	for {
-		data := <-cs
 		select {
 		case c := <-q.register:
 			q.connections[c] = true
 		case c := <-q.unregister:
-			q.connections[c] = false
+			if q.connections[c] {
+				q.connections[c] = false
+				delete(q.connections, c)
+				close(c.send)
+			}
 		default:
+			data := <-cs
 			for c := range q.connections {
 				select {
 				case c.send <- []byte(data):

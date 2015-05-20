@@ -14,6 +14,7 @@ import (
 
 type connection struct {
 	ws   *websocket.Conn
+	file *os.File
 	send chan []byte
 	d    *dataSource
 }
@@ -39,11 +40,12 @@ type fileData struct {
 func (c *connection) fileReader(location string) {
 
 	f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	w := bufio.NewWriter(f)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	c.file = f
+	w := bufio.NewWriter(c.file)
 	defer w.Flush()
 
 	for message := range c.send {
@@ -59,8 +61,13 @@ func (c *connection) fileReader(location string) {
 
 		output := string(result)
 		log.Println(output)
-		_, _ = f.WriteString(output + "\n")
+		_, err = w.WriteString(output + "\n")
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
+
 }
 
 var upgrader = websocket.Upgrader{
@@ -91,6 +98,7 @@ func StartRecordingHandler(file *connection, w http.ResponseWriter, r *http.Requ
 		log.Fatal(err)
 	}
 
+	file.send = make(chan []byte)
 	file.d.register <- file
 	defer func() { file.d.unregister <- file }()
 	file.fileReader(datum.Location)
@@ -99,6 +107,7 @@ func StartRecordingHandler(file *connection, w http.ResponseWriter, r *http.Requ
 func StopRecordingHandler(file *connection, w http.ResponseWriter, r *http.Request) {
 
 	file.d.unregister <- file
+	file.file.Close()
 }
 
 func main() {
@@ -109,7 +118,7 @@ func main() {
 	instrument := newDataSource()
 	go instrument.read(test)
 
-	file := &connection{send: make(chan []byte), d: instrument}
+	file := &connection{d: instrument}
 
 	r := mux.NewRouter()
 
