@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 type connection struct {
@@ -27,6 +29,13 @@ func (c *connection) reader() {
 	c.ws.Close()
 }
 
+type fileData struct {
+	Time     time.Time `json:"time"`
+	Weight   float64   `json:"weight"`
+	Unit     string    `json:"unit"`
+	Location string    `json:"location"`
+}
+
 func (c *connection) fileReader(location string) {
 
 	f, err := os.OpenFile("data.csv", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
@@ -38,7 +47,19 @@ func (c *connection) fileReader(location string) {
 	defer w.Flush()
 
 	for message := range c.send {
-		_, _ = f.WriteString(string(message) + "\n")
+		var data fileData
+
+		json.Unmarshal(message, &data)
+		data.Location = location
+
+		result, err := json.Marshal(data)
+		if err != nil {
+			continue
+		}
+
+		output := string(result)
+		log.Println(output)
+		_, _ = f.WriteString(output + "\n")
 	}
 }
 
@@ -49,6 +70,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func ScaleHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request) {
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -60,12 +82,23 @@ func ScaleHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request
 	c.reader()
 }
 
-func StartRecordingHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request) {
+func StartRecordingHandler(file *connection, w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
 
-	file := &connection{send: make(chan []byte), d: instrument}
+	var datum fileData
+	err := decoder.Decode(&datum)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	file.d.register <- file
 	defer func() { file.d.unregister <- file }()
-	file.fileReader("T1R1")
+	file.fileReader(datum.Location)
+}
+
+func StopRecordingHandler(file *connection, w http.ResponseWriter, r *http.Request) {
+
+	file.d.unregister <- file
 }
 
 func main() {
@@ -76,6 +109,8 @@ func main() {
 	instrument := newDataSource()
 	go instrument.read(test)
 
+	file := &connection{send: make(chan []byte), d: instrument}
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +118,12 @@ func main() {
 	})
 
 	r.HandleFunc("/record", func(w http.ResponseWriter, r *http.Request) {
-		StartRecordingHandler(instrument, w, r)
+		StartRecordingHandler(file, w, r)
 	})
 
+	r.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {
+		StopRecordingHandler(file, w, r)
+	})
 	http.Handle("/", r)
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
