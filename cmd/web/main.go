@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"flag"
+	"github.com/FogCreek/mini"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"log"
@@ -115,7 +116,13 @@ func main() {
 	flag.BoolVar(&test, "test", false, "use a random number generator instead of a live feed")
 	flag.Parse()
 
+	conf, err := mini.LoadConfiguration("config.ini")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	instrument := newDataSource()
+	instrument.port = conf.StringFromSection("", "port", "/dev/ttyUSB0")
 	go instrument.read(test)
 
 	file := &connection{d: instrument}
@@ -136,5 +143,5 @@ func main() {
 	http.Handle("/", r)
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
-	http.ListenAndServe("127.0.0.1:8081", nil)
+	http.ListenAndServe(":8081", nil)
 }

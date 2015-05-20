@@ -15,9 +15,9 @@ type Scale struct {
 }
 
 type Datum struct {
-	Time   time.Time
-	Weight float64
-	Unit   string
+	Time   time.Time `json:"time"`
+	Weight float64   `json:"weight"`
+	Unit   string    `json:"unit"`
 }
 
 func (scale Scale) Open() (port *serial.Port, err error) {
@@ -41,8 +41,8 @@ func (scale Scale) TestReader(c chan Datum) {
 	for {
 		d.Time = time.Now()
 		d.Weight = rand.Float64()
-		time.Sleep(2 * time.Second)
 		c <- d
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
@@ -57,7 +57,7 @@ func (scale Scale) Reader(c chan Datum) {
 			continue
 		}
 		for {
-			time := time.Now()
+			current_time := time.Now()
 			v, err := scale.Read(port)
 			if err != nil {
 				port.Close()
@@ -72,11 +72,13 @@ func (scale Scale) Reader(c chan Datum) {
 				break
 			}
 
-			d.Time = time
+			d.Time = current_time
 			d.Weight = weight
 			d.Unit = value[1]
 
 			c <- d
+
+			time.Sleep(200 * time.Millisecond)
 		}
 
 	}

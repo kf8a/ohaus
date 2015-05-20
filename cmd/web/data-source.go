@@ -10,6 +10,7 @@ type dataSource struct {
 	connections map[*connection]bool
 	register    chan *connection
 	unregister  chan *connection
+	port        string
 }
 
 func newDataSource() *dataSource {
@@ -17,6 +18,7 @@ func newDataSource() *dataSource {
 		connections: make(map[*connection]bool),
 		register:    make(chan *connection),
 		unregister:  make(chan *connection),
+		port:        "/dev/ttyUSB0",
 	}
 }
 
@@ -24,7 +26,7 @@ func newDataSource() *dataSource {
 func (q *dataSource) readData(cs chan string, test bool) {
 	var data ohaus.Datum
 	c := make(chan ohaus.Datum)
-	scale := ohaus.Scale{PortName: "/dev/ttyUSB0"}
+	scale := ohaus.Scale{PortName: q.port}
 	if test {
 		go scale.TestReader(c)
 	} else {
