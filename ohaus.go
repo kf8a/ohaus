@@ -42,7 +42,7 @@ func (scale Scale) TestReader(c chan Datum) {
 		d.Time = time.Now()
 		d.Weight = rand.Float64()
 		c <- d
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 	}
 }
 
@@ -78,7 +78,7 @@ func (scale Scale) Reader(c chan Datum) {
 
 			c <- d
 
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(10 * time.Second)
 		}
 
 	}
