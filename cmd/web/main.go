@@ -6,6 +6,7 @@ import (
 	"flag"
 	"github.com/FogCreek/mini"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -93,12 +94,17 @@ func ScaleHandler(instrument *dataSource, w http.ResponseWriter, r *http.Request
 func StartRecordingHandler(file *connection, w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 
+	session, _ := store.Get(r, "ohaus")
+
+	session.Values["recording"] = true
+
 	var datum fileData
 	err := decoder.Decode(&datum)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	session.Save(r, w)
 	file.send = make(chan []byte)
 	file.d.register <- file
 	defer func() { file.d.unregister <- file }()
@@ -111,6 +117,8 @@ func StopRecordingHandler(file *connection, w http.ResponseWriter, r *http.Reque
 	file.file.Close()
 }
 
+var store = sessions.NewCookieStore([]byte("something-very-secret"))
+
 func main() {
 	var test bool
 	flag.BoolVar(&test, "test", false, "use a random number generator instead of a live feed")
@@ -120,6 +128,9 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	sessionKey := conf.StringFromSection("", "session-key", "some-secret-key")
+	store = sessions.NewCookieStore([]byte(sessionKey))
 
 	instrument := newDataSource()
 	instrument.port = conf.StringFromSection("", "port", "/dev/ttyUSB0")
@@ -140,6 +151,7 @@ func main() {
 	r.HandleFunc("/stop", func(w http.ResponseWriter, r *http.Request) {
 		StopRecordingHandler(file, w, r)
 	})
+
 	http.Handle("/", r)
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
