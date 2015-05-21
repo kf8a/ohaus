@@ -56,12 +56,15 @@ func (q *dataSource) read(test bool) {
 			q.connections[c] = true
 		case c := <-q.unregister:
 			if q.connections[c] {
+				log.Println("closing")
 				q.connections[c] = false
 				delete(q.connections, c)
 				close(c.send)
+				log.Println(q)
 			}
 		default:
 			data := <-cs
+			log.Println(q)
 			for c := range q.connections {
 				select {
 				case c.send <- []byte(data):
