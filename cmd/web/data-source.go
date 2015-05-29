@@ -46,9 +46,7 @@ func (q *dataSource) readData(cs chan string, test bool) {
 func (q *dataSource) read(test bool) {
 
 	cs := make(chan string)
-	data := newDataSource()
-
-	go data.readData(cs, test)
+	go q.readData(cs, test)
 
 	for {
 		select {
