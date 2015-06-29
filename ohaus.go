@@ -2,9 +2,11 @@ package ohaus
 
 import (
 	"bufio"
+	"encoding/json"
 	serial "github.com/tarm/serial"
 	"log"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +49,13 @@ func (scale Scale) TestReader(c chan Datum) {
 }
 
 func (scale Scale) Reader(c chan Datum) {
+	f, err := os.OpenFile("backup-data.json", os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+
+	defer f.Close()
+
 	var d Datum
 	for {
 		port, err := scale.Open()
@@ -77,6 +86,16 @@ func (scale Scale) Reader(c chan Datum) {
 			d.Unit = value[1]
 
 			c <- d
+
+			text, err := json.Marshal(d)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			if _, err = f.WriteString(string(text)); err != nil {
+				log.Println(err)
+				continue
+			}
 
 			time.Sleep(10 * time.Second)
 		}
