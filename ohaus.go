@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
   "regexp"
-  "fmt"
 )
 
 type Scale struct {
