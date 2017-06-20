@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+  "regexp"
+  "fmt"
 )
 
 type Scale struct {
@@ -54,7 +56,13 @@ func (scale Scale) Reader(c chan Datum) {
 		panic(err)
 	}
 
+  r , err := regexp.Compile("^(.{11}) {5}([a-z])")
+  if err != nil {
+    panic(err)
+  }
+
 	defer f.Close()
+
 
 	var d Datum
 	for {
@@ -73,9 +81,23 @@ func (scale Scale) Reader(c chan Datum) {
 				log.Println(err)
 				break
 			}
-			value := strings.Split(strings.Trim(v, " "), " ")
-			weight, err := strconv.ParseFloat(value[0], 64)
-			if err != nil || len(value) < 2 {
+      log.Println(v)
+
+      match := r.FindStringSubmatch(v)
+      if (match == nil) {
+        port.Close()
+        // log.Println("no match")
+        break
+      }
+      if len(match[1]) != 11 {
+				port.Close()
+				log.Println("short value")
+        log.Println(match)
+				break
+      }
+
+			weight, err := strconv.ParseFloat(strings.Trim(match[1]," "), 64)
+			if err != nil {
 				port.Close()
 				log.Println(err)
 				break
@@ -83,7 +105,7 @@ func (scale Scale) Reader(c chan Datum) {
 
 			d.Time = current_time
 			d.Weight = weight
-			d.Unit = value[1]
+			d.Unit = match[2]
 
 			c <- d
 
@@ -97,7 +119,7 @@ func (scale Scale) Reader(c chan Datum) {
 				continue
 			}
 
-			time.Sleep(60 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 
 	}
